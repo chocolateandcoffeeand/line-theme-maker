@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LINE着せ替えメーカー</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--ink:#1c2430;--sub:#667085;--line:#e1e5ea;--accent:#06c755;--accent-d:#05a647;--warn:#d9480f;--sel:#2563eb}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.6 "Segoe UI","Hiragino Sans","Yu Gothic UI",sans-serif;background:var(--bg);color:var(--ink)}
+header{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);padding:10px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+header h1{font-size:17px;margin:0}
+.bar{flex:1;min-width:160px;height:10px;background:var(--line);border-radius:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+#stat{color:var(--sub);font-size:13px;white-space:nowrap}
+button{font:inherit;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:#b5bcc6}
+button.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button.pri:hover{background:var(--accent-d)}
+button:disabled{opacity:.45;cursor:not-allowed}
+main{display:grid;grid-template-columns:340px 1fr;gap:20px;padding:20px;max-width:1280px;margin:0 auto}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+aside{align-self:start;position:sticky;top:64px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;max-height:calc(100vh - 80px);overflow:auto}
+@media(max-width:900px){aside{position:static;max-height:none}}
+aside h2{font-size:14px;margin:0 0 8px}
+label{display:block;font-size:12px;color:var(--sub);margin:10px 0 3px}
+input[type=text],input[type=password],textarea,select{width:100%;font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+textarea{resize:vertical}
+.chk{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--ink);margin:6px 0}
+.chk input{margin:0}
+details.box{border-top:1px solid var(--line);margin-top:14px;padding-top:10px}
+details.box summary{cursor:pointer;font-weight:600}
+.note{font-size:12px;color:var(--sub)}
+.grp{margin:22px 0 8px;font-size:15px;font-weight:700}
+.grp small{font-weight:400;color:var(--sub)}
+.card{background:var(--card);border:2px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;display:grid;grid-template-columns:1fr 230px;gap:14px}
+@media(max-width:760px){.card{grid-template-columns:1fr}}
+.card.sel{border-color:var(--sel);box-shadow:0 0 0 3px #2563eb22}
+.card.done{border-left:6px solid var(--accent)}
+.head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.head b{font-size:14px}
+.tag{font-size:11px;padding:1px 7px;border-radius:10px;background:#eef1f5;color:var(--sub)}
+.tag.req{background:#fff1e6;color:var(--warn)}
+.head input[type=checkbox]{width:18px;height:18px;margin:0}
+.card textarea{height:130px;font-size:12px;line-height:1.5}
+.bhead{margin-top:26px;background:#fff;border:2px solid var(--accent);border-radius:12px;padding:12px;margin-bottom:10px}
+.bhead .grp{margin:0 0 8px}
+.bhead textarea.btext{height:200px;font-size:12px;line-height:1.5}
+.row{display:flex;gap:8px;margin-top:6px;align-items:center;flex-wrap:wrap}
+.drop{border:2px dashed #c3cad4;border-radius:10px;min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:8px;color:var(--sub);font-size:12px;cursor:pointer}
+.card.sel .drop{border-color:var(--sel);color:var(--sel)}
+.drop.over{background:#eaf2ff}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.thumbs figure{margin:0;text-align:center}
+.thumbs img{display:block;max-width:100px;max-height:100px;background:conic-gradient(#ddd 25%,#fff 0 50%,#ddd 0 75%,#fff 0) 0 0/12px 12px;border:1px solid var(--line)}
+.thumbs figcaption{font-size:10px;color:var(--sub)}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1c2430;color:#fff;padding:9px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:90vw}
+.toast.on{opacity:1}
+#missing{color:var(--warn);font-size:12px;margin-top:6px}
+</style>
+</head>
+<body>
+<header>
+  <h1>LINE着せ替えメーカー</h1>
+  <div class="bar"><i id="barfill"></i></div>
+  <span id="stat"></span>
+  <button class="pri" id="btnZip">ZIPを作成</button>
+  <button id="btnZipPartial" title="必須画像が足りなくても、いま入っている分だけZIPにします">未完成でも書き出す</button>
+  <button id="btnZipPicked" title="各枠の「選択」にチェックした画像だけをZIPにします">選んだものだけZIP (0)</button>
+  <button id="btnPickAll">全選択</button><button id="btnPickNone">全解除</button>
+</header>
+<main>
+<aside>
+  <h2>① テーマを決める</h2>
+  <label>テーマ（例：桜と猫の和風カフェ）</label>
+  <input type="text" id="theme" placeholder="テーマ">
+  <label>キャラクター・モチーフ（任意）</label>
+  <textarea id="motif" rows="2" placeholder="例：白い子猫のキャラクター、桜の花びら、湯のみ"></textarea>
+  <label>画風</label>
+  <input type="text" id="style" placeholder="例：やわらかい手描き水彩風、太めの輪郭線">
+  <label>配色（任意）</label>
+  <input type="text" id="palette" placeholder="例：桜ピンク #F7B6C8 / 生成り #FFF8EE / 墨色 #3A3A3A">
+  <label>アイコン類の背景の指示（透過のしかた）</label>
+  <select id="key">
+    <option value="green">緑 #00FF00で作らせ、ツールが透過にする（確実・通常はこちら）</option>
+    <option value="magenta">マゼンタ #FF00FF で作らせ、ツールが透過にする（絵柄が緑系のとき）</option>
+    <option value="transparent">ChatGPTに最初から透過PNGで作らせる（出ない場合あり）</option>
+  </select>
+  <div class="chk"><input type="checkbox" id="keyOn" checked><label for="keyOn" style="margin:0;color:inherit;font-size:13px">貼り付けた画像の背景色を自動で透過にする</label></div>
+  <label>パスコード画像</label>
+  <select id="pcMode">
+    <option value="single">1種類で表示（OFF/ONの2枚だけ作る）</option>
+    <option value="four">4種類で表示（桁ごとに8枚作る）</option>
+  </select>
+  <div class="chk"><input type="checkbox" id="optBg" checked><label for="optBg" style="margin:0;color:inherit;font-size:13px">メニュー背景（任意）も作る</label></div>
+  <div class="chk"><input type="checkbox" id="optTalk" checked><label for="optTalk" style="margin:0;color:inherit;font-size:13px">トークルーム背景（任意）も作る</label></div>
+  <label>メニュー背景を薄める（アイコンを見やすく）：<b id="veilv">50</b>%</label>
+  <input type="range" id="menuVeil" min="0" max="90" value="50">
+  <label>薄める色（メニュー背景）</label>
+  <input type="color" id="veilColor" value="#ffffff" style="width:60px;height:30px;padding:0">
+  <div class="chk"><input type="checkbox" id="talkFade" checked><label for="talkFade" style="margin:0;color:inherit;font-size:13px">トーク背景の上端をふわっと透過する（推奨）</label></div>
+  <div class="note" id="bgHint"></div>
+
+  <details class="box">
+    <summary>② Claudeで絵柄アイデアを作る（任意）</summary>
+    <p class="note">テーマから「各画像の具体的な絵柄案」をClaudeに考えてもらい、プロンプトに反映します。使わなくてもプロンプトは作られます。</p>
+    <label>A. APIキーで自動生成</label>
+    <input type="password" id="apiKey" placeholder="sk-ant-...（このブラウザ内でのみ使用）">
+    <div class="row"><button id="btnClaude">Claudeに考えてもらう</button></div>
+    <label>B. APIキーなし：claude.aiに貼り付けて使う</label>
+    <div class="row"><button id="btnCopyReq">依頼文をコピー</button></div>
+    <textarea id="ideasJson" rows="3" placeholder="Claudeが返したJSONをここに貼る"></textarea>
+    <div class="row"><button id="btnImport">取り込む</button><button id="btnClearIdeas">アイデアをクリア</button></div>
+  </details>
+
+  <details class="box" open>
+    <summary>使い方</summary>
+    <ol class="note" style="padding-left:18px;margin:6px 0">
+      <li>テーマ等を入力すると右にプロンプトが並びます</li>
+      <li>「コピー」→ChatGPTに貼り付けて画像生成（<b>同じチャットで上から順に</b>）</li>
+      <li>画像を右クリック「画像をコピー」→この画面で <b>Ctrl+V</b>。自動で次の枠へ進みます（ドラッグ&ドロップも可）</li>
+      <li>全部そろったら「ZIPを作成」</li>
+    </ol>
+    <div id="missing"></div>
+  </details>
+</aside>
+<section id="list"></section>
+</main>
+<div class="toast" id="toast"></div>
+<script src="jszip.min.js"></script>
+<script src="pako.min.js"></script>
+<script src="UPNG.js"></script>
+<script>
+"use strict";
+/* ============ 規格定義（LINE Creators Market 着せかえ 制作ガイドライン詳細 より） ============ */
+const p2 = n => String(n).padStart(2, '0');
+// [key, 表示名, OFF番号, ON番号, 役割ヒント]
+const MENU = [
+  ['home','ホーム',29,30,'家・ホームを連想させるかたち'],
+  ['talk','トーク',3,4,'吹き出し・メッセージ'],
+  ['voom','VOOM',33,34,'再生ボタン・動画・フィルム'],
+  ['shopping','ショッピング',35,36,'買い物袋・カート'],
+  ['call','通話',7,8,'電話の受話器・通話'],
+  ['news','ニュース',25,26,'新聞・ベル・お知らせ'],
+  ['today','TODAY',31,32,'カレンダー・太陽・今日のできごと'],
+  ['wallet','ウォレット',27,28,'財布・コイン・カード'],
+  ['apps','アプリ',37,38,'アプリの四角が並ぶ・ブロック']
+];
+
+function buildSlots(c){
+  const S = [];
+  S.push({id:'main',group:'A メイン画像',title:'メインビジュアル',kind:'main',req:true,
+    gen:'縦長 1024×1536',
+    outs:[
+      {name:'ios_thumbnail.png',w:200,h:284,fit:'cover',opaque:true},
+      {name:'android_thumbnail.png',w:136,h:202,fit:'cover',opaque:true},
+      {name:'store_thumbnail.png',w:198,h:278,fit:'cover',opaque:true}]});
+  MENU.forEach(([k,label,off,on,role])=>{
+    [['off',off],['on',on]].forEach(([st,n])=>{
+      S.push({id:`menu_${k}_${st}`,group:'B メニューボタン画像',title:`${label}（${st.toUpperCase()}）`,kind:'icon',
+        label,state:st,role,req:true,key:true,gen:'正方形 1024×1024',
+        outs:[
+          {name:`i_${p2(n)}.png`,w:128,h:150,fit:'box',pad:{t:8,b:36,l:10,r:10}}, // iOS 26未満 / Android（下部はメニュー名の文字と重なるため空ける）
+          {name:`i_${p2(n)}_g.png`,w:80,h:56,fit:'contain'}]});    // iOS 26
+    });
+  });
+  if(c.optBg) S.push({id:'menu_bg',group:'C メニュー背景画像（任意）',title:'メニュー背景',kind:'menubg',req:false,
+    gen:'横長 1536×1024',outs:[{name:'i_11.png',w:1472,h:150,fit:'cover',veil:true}]});
+  if(c.pcMode==='four'){
+    for(let d=1;d<=4;d++) ['off','on'].forEach((st,j)=>{
+      const n=12+(d-1)*2+j;
+      S.push({id:`pc${d}_${st}`,group:'D パスコード画像',title:`${d}桁目（${st.toUpperCase()}）`,kind:'pass',digit:d,state:st,req:true,key:true,gen:'正方形 1024×1024',
+        outs:[{name:`i_${n}.png`,w:120,h:120,fit:'contain'},{name:`a_${n}.png`,w:116,h:116,fit:'contain'}]});
+    });
+  } else {
+    ['off','on'].forEach((st,j)=>{
+      const outs=[];
+      for(let d=0;d<4;d++){const n=12+d*2+j;
+        outs.push({name:`i_${n}.png`,w:120,h:120,fit:'contain'},{name:`a_${n}.png`,w:116,h:116,fit:'contain'});}
+      S.push({id:`pc_${st}`,group:'D パスコード画像',title:`パスコード（${st.toUpperCase()}）全4桁共通`,kind:'pass',digit:0,state:st,req:true,key:true,gen:'正方形 1024×1024',outs});
+    });
+  }
+  S.push({id:'prof_user',group:'E プロフィール画像',title:'プロフィール（個人）',kind:'profUser',req:true,gen:'正方形 1024×1024',
+    outs:[{name:'i_20.png',w:240,h:240,fit:'cover',opaque:true},{name:'a_20.png',w:247,h:247,fit:'cover',opaque:true}]});
+  S.push({id:'prof_group',group:'E プロフィール画像',title:'プロフィール（グループ）',kind:'profGroup',req:true,gen:'正方形 1024×1024',
+    outs:[{name:'i_21.png',w:240,h:240,fit:'cover',opaque:true},{name:'a_21.png',w:247,h:247,fit:'cover',opaque:true}]});
+  if(c.optTalk) S.push({id:'talk_bg',group:'F トークルーム背景画像（任意）',title:'トークルーム背景',kind:'talkbg',req:false,gen:'縦長 1024×1536',
+    outs:[{name:'i_22.png',w:900,h:1334,fit:'cover',anchor:'bottom',fade:true,maxBytes:1000000},{name:'a_22.png',w:1200,h:1300,fit:'cover',anchor:'bottom',fade:true,maxBytes:1000000}]});
+  const ordered=buildBatches(S).flatMap(b=>b.ids);
+  S.splice(0,S.length,...ordered);
+  return S;
+}
+
+/* ============ プロンプト生成 ============ */
+const KEYHEX = {green:'#00FF00（蛍光グリーン）',magenta:'#FF00FF（マゼンタ）'};
+function bgLine(c,short){
+  if(c.key==='transparent') return '背景：透過PNG（アルファチャンネル付きの本物の透明）。白・黒・グレー・市松模様などの背景を描かない。被写体の外側と、輪郭の外の影もすべて完全に透明にする';
+  return `背景：${KEYHEX[c.key]}の完全なベタ塗り単色（${short?'影・グラデーションなし':'グラデーション・影・床・反射・ノイズは一切なし'}）。被写体にはこの色を絶対に使わない`;
+}
+function defaultIdea(s,c){
+  const m = c.motif || c.theme || 'テーマ';
+  switch(s.kind){
+    case 'main': return `${m}の主役を大きく中央に。テーマが一目で伝わる華やかな構図`;
+    case 'icon': return `${s.role}を、${m}のモチーフで表現する`;
+    case 'menubg': return `淡い単色またはやさしいグラデーションの帯に、${m}にちなむ小さな模様（星・花びら・ドットなど）をごくまばらに散らす`;
+    case 'pass': return `${m}をひとつだけ使った小さな丸いマーク`;
+    case 'profUser': return `${m}のキャラクター（または象徴）の顔・バストアップ`;
+    case 'profGroup': return `${m}のキャラクターたちが複数で集まっている様子`;
+    case 'talkbg': return `淡い単色〜やさしいグラデーションの上に、${m}にちなむ小さな模様を低密度で散らす。ワンポイントのイラストは下寄りに小さく`;
+  }
+}
+function promptFor(s,c,total,mode){
+  const idea = (c.ideas && c.ideas[s.id]) || defaultIdea(s,c);
+  const key = KEYHEX[c.key];
+  const common =
+`LINE着せ替え（LINEアプリの見た目を変えるテーマ）用のイラストを、全${total}枚のシリーズとして1枚ずつ作ります。次の共通ルールを毎回守り、すべての画像で同じキャラクター・画風・線の太さ・配色に統一してください。
+
+【共通ルール】
+・テーマ：${c.theme||'（未入力）'}
+・モチーフ／キャラクター：${c.motif||'テーマに合うものをおまかせ（最初に決めたものを以後も固定）'}
+・画風：${c.style||'かわいいイラスト調（最初に決めた画風を以後も固定）'}
+・配色：${c.palette||'テーマに合う3〜4色（最初に決めた配色を以後も固定）'}
+・画像内に文字・数字・ロゴ・透かし・枠線を入れない
+・既存の著作物・商標・実在のキャラクターに似せない（完全オリジナル）`;
+  let body;
+  switch(s.kind){
+    case 'main': body=
+`メインビジュアル（LINE STOREに並ぶ、着せ替えの顔になる絵）
+・内容：${idea}
+・出力：縦長 1024×1536
+・背景まで塗りつぶす（透過しない）
+・縮小して小さく表示されるので、主役を大きく、シンプルでくっきりした構図に
+・上下左右が少し切れても成立するよう、重要な要素は中央に置く`; break;
+    case 'icon': body=
+`${s.label}メニューのアイコン（${s.state==='off'?'未選択 OFF':'選択中 ON'}）
+・内容：${idea}
+・出力：正方形(1:1) 1024×1024
+・${bgLine(c,false)}
+・被写体は中央に1つだけ大きく描き、周囲に約15%の余白を残してはみ出させない
+・輪郭は太めで、白背景でも黒背景でも見える縁取りをつける。小さく縮小しても形が分かる単純でくっきりした絵にする
+・${s.state==='off'
+  ? '未選択状態：彩度を少し抑えた控えめな配色にする'
+  : '選択中状態：直前に作ったOFF版と同じ絵・同じ構図のまま、鮮やかな色に変えて一目で選択中と分かるようにする'}`; break;
+    case 'menubg': body=
+`メニュー背景（画面下のメニューバーの背景。5つのアイコンの「後ろ」に敷かれ、左揃えで横に繰り返されます）
+・目的：アイコンを引き立てる、無地に近いごく控えめな背景。主役にしない
+・内容：${idea}
+・出力：横長 1536×1024。実際に使われるのは上下中央の細い帯（高さ約15%）だけ
+・その帯の中は、単色〜ごく淡いグラデーションを基本にし、小さな模様をまばらに（密度10%以下）入れるだけにする。コントラストは低く
+・キャラクター・顔・文字・大きなモチーフ・濃い色・強いコントラストは禁止（アイコンと同化して見えなくなるため）
+・配色のうち最も明るい（淡い）色を基調にする
+・左端と右端が同じ色味になること（横に繰り返すため）
+・背景まで塗りつぶす（透過しない）`; break;
+    case 'pass': body=
+`パスコード入力画面の1桁分のマーク（${s.state==='off'?'未入力 OFF':'入力済み ON'}）${s.digit?`・${s.digit}桁目用`:'（4桁すべて共通で使います）'}
+・内容：${idea}
+・出力：正方形(1:1) 1024×1024
+・${bgLine(c,true)}
+・被写体を中央に大きく、周囲に約10%の余白
+・${s.state==='off'
+  ? '未入力：輪郭だけ・淡い色・小さめなど、まだ入力されていない控えめな見た目'
+  : '入力済み：直前のOFF版と同じ形で、しっかり色が付いた入力済みの見た目'}${s.digit?`
+・4桁を並べるとテーマの絵として一体感が出るよう、${s.digit}桁目なりの変化をつける`:''}`; break;
+    case 'profUser': body=
+`プロフィール画像の初期アイコン（個人用）
+・内容：${idea}
+・出力：正方形(1:1) 1024×1024
+・アプリ上では丸く切り抜かれるが、タップすると四隅まで見えるので、背景を四隅まで丁寧に描き込み、透過しない
+・主役は中心に置き、円で切っても顔やモチーフが欠けないこと`; break;
+    case 'profGroup': body=
+`プロフィール画像の初期アイコン（グループ用）
+・内容：${idea}
+・出力：正方形(1:1) 1024×1024
+・アプリ上では丸く切り抜かれるが、タップすると四隅まで見えるので、背景を四隅まで丁寧に描き込み、透過しない
+・個人用と同じ世界観で「みんなで集まっている」感じが出ること`; break;
+    case 'talkbg': body=
+`トークルームの背景（吹き出しと文字が全面に重なって表示される。読みやすさが最優先）
+・内容：${idea}
+・出力：縦長(2:3) 1024×1536。スマホを縦に持った画面いっぱいに表示されるため、縦長の構図で描く。端末の幅によって左右の約10%ずつが切り取られるので、重要な要素は中央の約75%に収める
+・全体に淡く低コントラストにする（上に載る文字・吹き出しが読めること）。濃い色・強い模様・大きなキャラクターを画面の中央〜上に置かない
+・模様は小さく低密度にして、余白を多くとる
+・背景の塗りは、筆跡・水彩のにじみ・ムラ・ざらつき・ノイズのない、なめらかな単色またはごく緩やかなグラデーションにする（塗りは均一でフラット）
+・キャラクターを入れる場合は1体だけ小さく、下端から10〜35%の高さに置く（最下部の約10%は入力欄と重なるので何も描かない）
+・上部は無地に近い淡い色にして、そのまま単色へ溶けるようにする
+・背景まで塗りつぶす（透過しない）`; break;
+  }
+  if(mode==='body')return body;
+  if(mode==='common')return common;
+  return `${common}\n\n【今回作る画像】\n${body}\n\n画像を1枚だけ出力してください。`;
+}
+// ChatGPTは1回に最大10枚まで → 同ジャンル・ON/OFFペアをまとめて1プロンプトにする
+function buildBatches(slots){
+  const by=f=>slots.filter(f), menu=by(s=>s.kind==='icon');
+  return [
+    {title:'メイン＋プロフィール',ids:by(s=>['main','profUser','profGroup'].includes(s.kind))},
+    {title:'メニューボタン①（ホーム・トーク・VOOM・ショッピング）',ids:menu.slice(0,8)},
+    {title:'メニューボタン②（通話・ニュース・TODAY・ウォレット・アプリ）',ids:menu.slice(8)},
+    {title:'パスコード＋背景',ids:by(s=>['pass','menubg','talkbg'].includes(s.kind))}
+  ].filter(b=>b.ids.length);
+}
+function batchPrompt(b,c,total){
+  const n=b.ids.length;
+  const items=b.ids.map((s,i)=>`■${i+1}枚目：${promptFor(s,c,total,'body')}`).join('\n\n');
+  return `${promptFor(b.ids[0],c,total,'common')}\n\n【今回作る画像：${n}枚】\n次の${n}枚を、1枚ずつ別々の画像として、番号順に出力してください（1枚にまとめない／グリッドにしない／同じ絵の使い回しをしない）。\n\n${items}\n\n最後に「${n}枚出力しました」とだけ添えてください。`;
+}
+
+function ideaRequest(c,slots){
+  const list = slots.map(s=>`- ${s.id}: ${s.title}（${s.kind==='icon'?s.role:s.group}）`).join('\n');
+  return `LINE着せ替えのイラストを画像生成AIに作らせるため、各画像の「具体的な絵柄アイデア」を考えてください。
+
+テーマ：${c.theme||'（未入力）'}
+モチーフ／キャラクター：${c.motif||'おまかせ'}
+画風：${c.style||'おまかせ'}
+配色：${c.palette||'おまかせ'}
+
+条件：
+- 全画像でキャラクター・世界観を統一し、シリーズとして見たときに一体感が出ること
+- OFFとONのペアは「同じ絵のOFF=控えめ／ON=鮮やか」になる前提なので、ONの案はOFFと同じモチーフで書く
+- 各案は日本語で1〜2文。ポーズ・小物・構図など描き込める具体性をもたせる
+- 既存キャラクター・商標に似せない
+- 文字を入れる案は禁止
+
+次のIDごとに案を書き、JSONオブジェクトだけを返してください（説明文やコードブロックは不要）。キーはID、値は案の文字列です。
+${list}`;
+}
+
+/* ============ 画像処理 ============ */
+function mkCanvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c}
+function resample(src,dw,dh){ // 段階的に縮小して品質を保つ
+  let cur=src, cw=src.width, ch=src.height;
+  while(cw/2>dw && ch/2>dh){
+    const nw=Math.ceil(cw/2), nh=Math.ceil(ch/2), t=mkCanvas(nw,nh), x=t.getContext('2d');
+    x.imageSmoothingQuality='high'; x.drawImage(cur,0,0,nw,nh); cur=t; cw=nw; ch=nh;
+  }
+  const out=mkCanvas(Math.max(1,Math.round(dw)),Math.max(1,Math.round(dh))), ox=out.getContext('2d');
+  ox.imageSmoothingQuality='high'; ox.drawImage(cur,0,0,out.width,out.height);
+  return out;
+}
+function keyOut(canvas,mode){ // クロマキー（緑 / マゼンタ）を透過に
+  const x=canvas.getContext('2d'), d=x.getImageData(0,0,canvas.width,canvas.height), a=d.data;
+  const LO=35, HI=105;
+  for(let i=0;i<a.length;i+=4){
+    const r=a[i], g=a[i+1], b=a[i+2];
+    const dom = mode==='green' ? g-Math.max(r,b) : Math.min(r,b)-g;
+    if(dom<=LO) continue;
+    const t=Math.min(1,(dom-LO)/(HI-LO));
+    a[i+3]=Math.round(a[i+3]*(1-t));
+    // 縁の色かぶりを抑える
+    if(mode==='green') a[i+1]=Math.min(g,Math.max(r,b));
+    else { a[i]=Math.round(r-(r-g)*t*0.8); a[i+2]=Math.round(b-(b-g)*t*0.8); }
+  }
+  x.putImageData(d,0,0);
+}
+const toBlob=(cv)=>new Promise(r=>cv.toBlob(r,'image/png'));
+
+async function renderSlot(slot,blob,c){
+  const bmp=await createImageBitmap(blob);
+  const base=mkCanvas(bmp.width,bmp.height);
+  const bx=base.getContext('2d');
+  bx.drawImage(bmp,0,0); bmp.close&&bmp.close();
+  if(slot.key && c.keyOn && c.key!=='transparent') keyOut(base,c.key);
+  const res=[];
+  for(const o of slot.outs){
+    let w=o.w,h=o.h,scaleDown=1,pngBlob=null,cv=null,done=false;
+    for(let tries=0;tries<12&&!done;tries++){
+      cv=mkCanvas(w,h); const x=cv.getContext('2d');
+      if(o.opaque){x.fillStyle='#fff';x.fillRect(0,0,w,h)}
+      const pad=o.pad||{t:0,b:0,l:0,r:0}, iw=w-pad.l-pad.r, ih=h-pad.t-pad.b;
+      const k = o.fit==='cover' ? Math.max(w/base.width,h/base.height) : Math.min(iw/base.width,ih/base.height);
+      const rs=resample(base,base.width*k,base.height*k);
+      if(o.fit==='cover') x.drawImage(rs,(w-rs.width)/2,o.anchor==='bottom'?h-rs.height:(h-rs.height)/2); // 背景は下揃えで表示されるので、はみ出し分は上から切る
+      else x.drawImage(rs,pad.l+(iw-rs.width)/2,pad.t+(ih-rs.height)/2);
+      if(o.veil && c.menuVeil>0){ // 背景を薄めて、アイコンの邪魔にならないようにする
+        x.globalAlpha=c.menuVeil/100; x.fillStyle=c.veilColor||'#ffffff'; x.fillRect(0,0,w,h); x.globalAlpha=1;
+      }
+      if(o.fade && c.talkFade){ // 上端をふわっと透過（画面が縦長で画像の上が切れても目立たない）
+        const fh=h*0.3, g=x.createLinearGradient(0,0,0,fh);
+        g.addColorStop(0,'rgba(0,0,0,1)'); g.addColorStop(1,'rgba(0,0,0,0)');
+        x.globalCompositeOperation='destination-out'; x.fillStyle=g; x.fillRect(0,0,w,fh); x.globalCompositeOperation='source-over';
+      }
+      pngBlob=await toBlob(cv);
+      if(o.maxBytes && pngBlob.size>o.maxBytes){
+        // 容量超過：①細かなノイズを軽く均して再圧縮 → ②それでも超えるなら、ノイズ(ディザ)を足して減色(PNG-8)
+        const sm=mkCanvas(w,h), sx=sm.getContext('2d'); sx.filter='blur(0.8px)'; sx.drawImage(cv,0,0); sx.filter='none';
+        const b2=await toBlob(sm);
+        if(b2.size<=o.maxBytes){pngBlob=b2;cv=sm}
+        else if(window.UPNG){
+          const d=sx.getImageData(0,0,w,h), a8=d.data;
+          for(let i=0;i<a8.length;i+=4){const nz=(Math.random()-.5)*6;a8[i]+=nz;a8[i+1]+=nz;a8[i+2]+=nz} // Uint8Clampedなので自動で0〜255に丸められる
+          for(const n of [256,192,128]){
+            try{const q=new Blob([UPNG.encode([a8.buffer.slice(0)],w,h,n)],{type:'image/png'});
+              if(q.size<=o.maxBytes){pngBlob=q;cv=sm;break}}catch(e){break}
+          }
+        }
+      }
+      if(!o.maxBytes || pngBlob.size<=o.maxBytes){res.push({name:o.name,w,h,blob:pngBlob,canvas:cv});done=true;break}
+      // それでも超過：面積と容量が比例すると見なして縮小
+      scaleDown*=Math.max(0.4,Math.min(0.92,Math.sqrt(o.maxBytes/pngBlob.size)*0.95)); w=Math.max(60,Math.round(o.w*scaleDown)); h=Math.max(60,Math.round(o.h*scaleDown));
+    }
+    if(!done) res.push({name:o.name,w,h,blob:pngBlob,canvas:null});
+  }
+  return res;
+}
+
+/* ============ 保存（IndexedDB） ============ */
+const DB={
+  open(){return new Promise((res,rej)=>{const r=indexedDB.open('line-theme-maker',1);r.onupgradeneeded=()=>r.result.createObjectStore('imgs');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})},
+  async all(){try{const db=await this.open();return await new Promise((res)=>{const out={};const q=db.transaction('imgs').objectStore('imgs').openCursor();q.onsuccess=()=>{const cur=q.result;if(cur){out[cur.key]=cur.value;cur.continue()}else res(out)};q.onerror=()=>res({})})}catch(e){return {}}},
+  async put(k,v){try{const db=await this.open();db.transaction('imgs','readwrite').objectStore('imgs').put(v,k)}catch(e){}},
+  async del(k){try{const db=await this.open();db.transaction('imgs','readwrite').objectStore('imgs').delete(k)}catch(e){}}
+};
+
+/* ============ アプリ本体 ============ */
+const $=id=>document.getElementById(id);
+const FIELDS=['theme','motif','style','palette','key','pcMode','menuVeil','veilColor'];
+const CHECKS=['keyOn','optBg','optTalk','talkFade'];
+let cfg={theme:'',motif:'',style:'',palette:'',key:'green',pcMode:'single',keyOn:true,optBg:true,optTalk:true,menuVeil:'50',veilColor:'#ffffff',talkFade:true,ideas:{}};
+let picked=new Set(), slots=[], batches=[], images={}, previews={}, sel=0, cards={};
+
+function loadCfg(){try{const j=JSON.parse(localStorage.getItem('ltm-cfg')||'null');if(j)Object.assign(cfg,j)}catch(e){}}
+function saveCfg(){try{localStorage.setItem('ltm-cfg',JSON.stringify(cfg))}catch(e){}}
+function readInputs(){
+  FIELDS.forEach(f=>cfg[f]=$(f).value);
+  CHECKS.forEach(f=>cfg[f]=$(f).checked);
+}
+function writeInputs(){
+  FIELDS.forEach(f=>$(f).value=cfg[f]);
+  CHECKS.forEach(f=>$(f).checked=cfg[f]);
+}
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('on'),2200)}
+
+function h(tag,attrs={},...kids){
+  const e=document.createElement(tag);
+  for(const [k,v] of Object.entries(attrs)){ if(k==='class')e.className=v; else if(k.startsWith('on'))e.addEventListener(k.slice(2),v); else e.setAttribute(k,v) }
+  kids.flat().forEach(k=>e.append(k));
+  return e;
+}
+
+function rebuild(){
+  slots=buildSlots(cfg);
+  const list=$('list'); list.textContent='';
+  cards={}; batches=buildBatches(slots);
+  batches.forEach((b,bi)=>{
+    const first=slots.indexOf(b.ids[0]);
+    const bta=h('textarea',{readonly:'readonly',class:'btext'});
+    b.ta=bta;
+    list.append(h('div',{class:'bhead'},
+      h('div',{class:'grp'},`プロンプト${bi+1}：${b.title} `,h('small',{},`${b.ids.length}枚を1回で生成`)),
+      bta,
+      h('div',{class:'row'},
+        h('button',{class:'pri',onclick:()=>{navigator.clipboard.writeText(bta.value).then(()=>toast(`プロンプト${bi+1}をコピーしました。ChatGPTに貼り付けてください`));select(first)}},`プロンプト${bi+1}をコピー`),
+        h('button',{onclick:()=>{const all=b.ids.every(x=>picked.has(x.id));b.ids.forEach(x=>{all?picked.delete(x.id):picked.add(x.id);cards[x.id].cb.checked=!all});updateStatus()}},'この枠をまとめて選択/解除'),
+        h('span',{class:'note'},'出力された画像を1枚ずつコピー→下の枠でCtrl+V（上から順に埋まります）'))));
+    b.ids.forEach((s,k)=>{
+      const i=slots.indexOf(s);
+      const ta=h('textarea',{readonly:'readonly'});
+      const thumbs=h('div',{class:'thumbs'});
+      const drop=h('div',{class:'drop',tabindex:'0'},thumbs);
+      const cb=h('input',{type:'checkbox',title:'ZIPに入れる（選んだものだけZIP用）'});
+      cb.checked=picked.has(s.id);
+      cb.addEventListener('click',e=>{e.stopPropagation();cb.checked?picked.add(s.id):picked.delete(s.id);updateStatus()});
+      const card=h('div',{class:'card'},
+        h('div',{},
+          h('div',{class:'head'},cb,h('span',{class:'tag'},`${k+1}枚目`),h('b',{},s.title),h('span',{class:'tag'+(s.req?' req':'')},s.req?'必須':'任意'),h('span',{class:'tag'},s.outs.length+'ファイル')),
+          h('details',{},h('summary',{class:'note'},'この1枚だけ作り直す用のプロンプト'),ta,
+            h('div',{class:'row'},h('button',{onclick:e=>{e.stopPropagation();navigator.clipboard.writeText(ta.value).then(()=>toast('個別プロンプトをコピーしました'));select(i)}},'コピー'))),
+          h('div',{class:'row'},
+            h('button',{onclick:e=>{e.stopPropagation();pickFile(i)}},'ファイルを選ぶ'),
+            h('button',{onclick:e=>{e.stopPropagation();removeImage(i)}},'画像を削除'))),
+        drop);
+      card.addEventListener('click',()=>select(i));
+      drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over')});
+      drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+      drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');const fs=[...e.dataTransfer.files].filter(f=>f.type.startsWith('image/'));if(fs.length)assignMany(i,fs)});
+      cards[s.id]={card,ta,thumbs,drop,cb};
+      list.append(card);
+      paintCard(s);
+    });
+  });
+  refreshPrompts();
+  if(sel>=slots.length)sel=0;
+  select(sel,false); updateStatus();
+}
+function paintCard(s){
+  const c=cards[s.id]; if(!c)return;
+  c.thumbs.textContent='';
+  const pv=previews[s.id];
+  if(pv&&images[s.id]){
+    c.card.classList.add('done');
+    pv.forEach(p=>c.thumbs.append(h('figure',{},h('img',{src:p.url,alt:p.name}),h('figcaption',{},`${p.name} ${p.w}×${p.h}`))));
+  } else {
+    c.card.classList.remove('done');
+    c.thumbs.append(h('div',{},'ここに画像を貼り付け','\n',h('br'),'(Ctrl+V / ドロップ)'));
+  }
+}
+function select(i,scroll=true){
+  sel=i;
+  slots.forEach((s,k)=>cards[s.id].card.classList.toggle('sel',k===i));
+  if(scroll)cards[slots[i].id].card.scrollIntoView({block:'center',behavior:'smooth'});
+}
+function refreshPrompts(){
+  slots.forEach(s=>{cards[s.id].ta.value=promptFor(s,cfg,slots.length)});
+  batches.forEach(b=>{b.ta.value=batchPrompt(b,cfg,slots.length)});
+}
+async function setImage(i,blob,persist=true){
+  const s=slots[i];
+  images[s.id]=blob;
+  try{
+    const outs=await renderSlot(s,blob,cfg);
+    previews[s.id]=outs.filter((o,k,arr)=>arr.findIndex(z=>z.w===o.w&&z.h===o.h)===k||k<2).slice(0,4).map(o=>({name:o.name,w:o.w,h:o.h,url:URL.createObjectURL(o.blob)}));
+  }catch(e){delete images[s.id];toast('画像を読み込めませんでした');return}
+  if(s.id==='talk_bg')bgHint(blob);
+  if(s.key&&cfg.key==='transparent')checkAlpha(blob);
+  if(persist)DB.put(s.id,blob);
+  paintCard(s); updateStatus();
+}
+async function assignMany(start,files){
+  let i=start;
+  for(const f of files){ if(i>=slots.length)break; await setImage(i,f); i++ }
+  const next=slots.findIndex((s,k)=>k>=i&&!images[s.id]);
+  select(next>=0?next:Math.min(i,slots.length-1));
+}
+function removeImage(i){const id=slots[i].id;delete images[id];delete previews[id];DB.del(id);paintCard(slots[i]);updateStatus()}
+function pickFile(i){
+  const inp=h('input',{type:'file',accept:'image/*',multiple:'multiple'});
+  inp.onchange=()=>{const fs=[...inp.files];if(fs.length)assignMany(i,fs)};
+  inp.click();
+}
+document.addEventListener('paste',e=>{
+  const t=e.target; if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA')&&!t.readOnly)return;
+  const fs=[...(e.clipboardData?.files||[])].filter(f=>f.type.startsWith('image/'));
+  if(!fs.length)return;
+  e.preventDefault(); assignMany(sel,fs);
+});
+
+async function checkAlpha(blob){ // 透過指定なのに不透明な画像が貼られたら知らせる
+  try{
+    const bmp=await createImageBitmap(blob), c=mkCanvas(bmp.width,bmp.height), x=c.getContext('2d'); x.drawImage(bmp,0,0);
+    const pts=[[0,0],[c.width-1,0],[0,c.height-1],[c.width-1,c.height-1]];
+    if(pts.every(([px,py])=>x.getImageData(px,py,1,1).data[3]===255)) toast('この画像は透過になっていません。背景の指示を「緑で作らせる」に変えて作り直すのがおすすめです');
+  }catch(e){}
+}
+async function bgHint(blob){ // トーク背景の上部の平均色 → LINE側で設定する背景色の目安
+  try{
+    const bmp=await createImageBitmap(blob), c=mkCanvas(16,16), x=c.getContext('2d');
+    x.drawImage(bmp,0,0,bmp.width,bmp.height*0.06,0,0,16,16);
+    const d=x.getImageData(0,0,16,16).data; let r=0,g=0,b=0,n=d.length/4;
+    for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2]}
+    const hex='#'+[r,g,b].map(v=>Math.round(v/n).toString(16).padStart(2,'0')).join('');
+    $('bgHint').textContent=`トーク背景の上部の色：${hex} → LINEの申請画面で「背景色」をこの色に近づけると、上端が自然につながります`;
+  }catch(e){}
+}
+function updateStatus(){
+  const total=slots.length, done=slots.filter(s=>images[s.id]).length;
+  const need=slots.filter(s=>s.req), miss=need.filter(s=>!images[s.id]);
+  $('barfill').style.width=(done/total*100)+'%';
+  const files=slots.filter(s=>images[s.id]).reduce((n,s)=>n+s.outs.length,0);
+  $('stat').textContent=`${done}/${total}枚 登録（ZIP内 ${files}ファイル）`;
+  $('btnZip').disabled=miss.length>0;
+  const pk=slots.filter(x=>picked.has(x.id)&&images[x.id]);
+  $('btnZipPicked').textContent=`選んだものだけZIP (${pk.length}枚/${pk.reduce((n,x)=>n+x.outs.length,0)}ファイル)`;
+  $('btnZipPicked').disabled=!pk.length;
+  $('missing').textContent=miss.length?`必須で未登録：${miss.length}枚（${miss.slice(0,4).map(s=>s.title).join('、')}${miss.length>4?'…':''}）`:'必須画像はそろっています。';
+}
+
+async function buildZip(mode){
+  const partial=mode!=='all'; const zip=new JSZip(); let n=0;
+  for(const s of slots){
+    if(!images[s.id])continue;
+    if(mode==='picked'&&!picked.has(s.id))continue;
+    const outs=await renderSlot(s,images[s.id],cfg);
+    for(const o of outs){zip.file(o.name,o.blob);n++}
+  }
+  if(!n){toast('画像がありません');return}
+  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});
+  const name=((cfg.theme||'theme').replace(/[\\/:*?"<>|\s]+/g,'_'))+(mode==='picked'?'_selected':partial?'_partial':'')+'_line-theme.zip';
+  const a=h('a',{href:URL.createObjectURL(blob),download:name}); document.body.append(a); a.click(); a.remove();
+  toast(`${name} を作成しました（${n}ファイル）`);
+}
+$('btnZip').onclick=()=>buildZip('all');
+$('btnZipPartial').onclick=()=>buildZip('partial');
+$('btnZipPicked').onclick=()=>buildZip('picked');
+$('btnPickAll').onclick=()=>{slots.forEach(x=>{picked.add(x.id);cards[x.id].cb.checked=true});updateStatus()};
+$('btnPickNone').onclick=()=>{picked.clear();slots.forEach(x=>cards[x.id].cb.checked=false);updateStatus()};
+
+/* Claude連携 */
+function applyIdeas(obj){
+  cfg.ideas=Object.assign({},cfg.ideas,obj); saveCfg(); refreshPrompts();
+  toast(`${Object.keys(obj).length}件の絵柄アイデアを反映しました`);
+}
+function parseIdeas(text){
+  const m=text.match(/\{[\s\S]*\}/); if(!m)throw new Error('JSONが見つかりません');
+  const o=JSON.parse(m[0]); const clean={};
+  for(const [k,v] of Object.entries(o)) if(typeof v==='string') clean[k]=v;
+  return clean;
+}
+$('btnCopyReq').onclick=()=>{readInputs();navigator.clipboard.writeText(ideaRequest(cfg,slots)).then(()=>toast('依頼文をコピーしました。claude.aiに貼り付けてください'))};
+$('btnImport').onclick=()=>{try{applyIdeas(parseIdeas($('ideasJson').value))}catch(e){toast('取り込めません：'+e.message)}};
+$('btnClearIdeas').onclick=()=>{cfg.ideas={};saveCfg();refreshPrompts();toast('アイデアをクリアしました')};
+$('btnClaude').onclick=async()=>{
+  readInputs();
+  const key=$('apiKey').value.trim(); if(!key){toast('APIキーを入力してください');return}
+  try{sessionStorage.setItem('ltm-key',key)}catch(e){}
+  const b=$('btnClaude'); b.disabled=true; b.textContent='考え中…';
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+      headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-5-5',max_tokens:6000,messages:[{role:'user',content:ideaRequest(cfg,slots)}]})});
+    const j=await res.json(); if(!res.ok)throw new Error(j.error?.message||res.status);
+    applyIdeas(parseIdeas(j.content.map(c=>c.text||'').join('')));
+  }catch(e){toast('失敗：'+e.message)}
+  b.disabled=false; b.textContent='Claudeに考えてもらう';
+};
+
+/* 設定変更 */
+let t0;
+function onCfg(){
+  const sig=()=>JSON.stringify([cfg.pcMode,cfg.optBg,cfg.optTalk,cfg.keyOn,cfg.key,cfg.menuVeil,cfg.veilColor,cfg.talkFade]);
+  const before=sig();
+  readInputs(); saveCfg();
+  const after=sig(); $('veilv').textContent=cfg.menuVeil;
+  clearTimeout(t0);
+  t0=setTimeout(async()=>{
+    if(before!==after){
+      rebuild();
+      // 透過設定などが変わったら既存画像のプレビューも作り直す
+      for(let i=0;i<slots.length;i++) if(images[slots[i].id]) await setImage(i,images[slots[i].id],false);
+    } else refreshPrompts();
+  },250);
+}
+[...FIELDS,...CHECKS].forEach(f=>$(f).addEventListener('input',onCfg));
+
+(async function init(){
+  loadCfg(); writeInputs(); $('veilv').textContent=cfg.menuVeil;
+  try{$('apiKey').value=sessionStorage.getItem('ltm-key')||''}catch(e){}
+  slots=buildSlots(cfg); rebuild();
+  const saved=await DB.all();
+  for(let i=0;i<slots.length;i++){ const b=saved[slots[i].id]; if(b)await setImage(i,b,false) }
+  const first=slots.findIndex(s=>!images[s.id]); select(first>=0?first:0,false);
+})();
+window.__ltm={get slots(){return slots},get images(){return images},setImage,buildZip,renderSlot,cfg:()=>cfg};
+</script>
+</body>
+</html>
